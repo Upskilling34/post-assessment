@@ -1,6 +1,17 @@
-# Temporal post-assessment starter
+# Juniper Salon opening concierge
 
-This repository provides a working local Temporal environment, API, Worker, and browser interface. The included neutral demo is intentionally unrelated to the customer’s final process. Use what you learn in the customer conversation to replace it.
+A working Temporal prototype for filling last-minute salon openings without manual follow-up. Staff create an opening, and the Workflow offers it to one eligible waitlist client at a time. A client has 15 minutes to accept or decline; a decline or timeout advances to the next person automatically.
+
+## Prototype behavior
+
+- Filters sample waitlist clients by service, stylist preference, and text consent.
+- Prioritizes the longest-waiting suitable clients.
+- Holds the opening for the first timely acceptance.
+- Shows the current offer, next client, deadline, and per-opening history.
+- Lets staff stop outreach, mark the opening filled, or select a client manually.
+- Uses a direct client offer page with no account required.
+
+All texts and client data are simulated. The prototype does not send SMS or update Square; staff continue to update Square manually.
 
 ## Important: create a new public repository—do not fork
 
@@ -31,7 +42,7 @@ Before the timed assessment:
 
 If you accidentally create a fork, do not push assessment work to it. Create a new public repository, change your local `origin`, and ask the course team to remove the fork. Do not search for or view other participants’ assessment repositories.
 
-## Verify setup before the timed assessment
+## Run locally
 
 Requirements: Node.js 20 or newer and Docker Desktop.
 
@@ -40,7 +51,7 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:3000>, run the demo, and confirm that it completes. You can inspect it in the Temporal Web UI at <http://localhost:8233>. Setup time does not count toward the assessment.
+Open <http://localhost:3000> to use the staff prototype. Inspect Workflow executions in the Temporal Web UI at <http://localhost:8233>.
 
 Other commands:
 
@@ -52,12 +63,13 @@ npm run stop      # Stop the local Temporal service
 
 ## Repository map
 
-- `src/workflows.ts` — durable Workflow logic and message handlers
-- `src/worker.ts` — Worker and Task Queue configuration
-- `src/api.ts` — browser-facing API and Temporal Client
-- `src/types.ts` — shared data types
-- `public/` — customer-facing interface
-- `tests/` — Workflow test example
+- `src/workflows.ts` - durable opening sequence, timers, Signals, and status Query
+- `src/worker.ts` - Worker and Task Queue configuration
+- `src/api.ts` - browser-facing API, sample waitlist, and Temporal Client
+- `src/types.ts` - shared opening and waitlist types
+- `public/` - staff control room and client offer page
+- `tests/` - Workflow test for decline, advancement, and acceptance
+- `output/pdf/` - standalone presentation for Lena
 
 You may change any application file. Do not edit generated files in `node_modules`.
 

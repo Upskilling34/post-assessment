@@ -1,40 +1,17 @@
-const phase = document.querySelector("#phase");
-const message = document.querySelector("#message");
-const start = document.querySelector("#start");
-const continueButton = document.querySelector("#continue");
-const requestIdText = document.querySelector("#request-id");
-let requestId;
-let pollTimer;
-
-async function refresh() {
-  if (!requestId) return;
-  const response = await fetch(`/api/demo/${requestId}`);
-  const status = await response.json();
-  if (!response.ok) {
-    phase.textContent = "Waiting for Worker";
-    message.textContent = "Temporal has the request and will continue when a Worker is available.";
-    return;
-  }
-  phase.textContent = status.phase;
-  message.textContent = status.message;
-  continueButton.hidden = status.phase !== "waiting";
-  if (status.phase === "complete") clearInterval(pollTimer);
+const $ = (s) => document.querySelector(s); let openingId; let timer;
+const pretty = (iso) => new Date(iso).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
+fetch("/api/clients").then((r) => r.json()).then((clients) => { $("#manual-client").innerHTML = clients.filter((c) => c.smsOptIn).map((c) => `<option value="${c.id}">${c.name} · ${c.availability}</option>`).join(""); });
+async function refresh() { if (!openingId) return; const res = await fetch(`/api/openings/${openingId}`); if (!res.ok) return; render(await res.json()); }
+function render(s) { $("#opening").hidden = false; $("#phase").textContent = s.phase.replace("-", " "); $("#phase").className = `pill ${s.phase}`; $("#opening-title").textContent = `${s.opening.service} with ${s.opening.stylist}`; $("#opening-meta").textContent = `Latest arrival ${pretty(s.opening.latestArrivalAt)} · 15-minute response window`;
+  const active = s.phase === "offering"; const c = s.currentClient; $("#client-actions").hidden = !active;
+  $("#offer").innerHTML = active ? `<h3>${c.name}</h3><p>${c.service} · ${c.stylist === "Any stylist" ? s.opening.stylist : c.stylist}</p><p class="deadline">Respond by <strong>${pretty(s.offerDeadline)}</strong></p><p class="muted">Preferred availability: ${c.availability}</p>` : `<h3>${s.phase === "held" ? `Held for ${s.heldFor.name}` : s.phase === "exhausted" ? "No one took this opening" : "Outreach stopped"}</h3><p>${s.reason || "Staff should update Square manually after a hold."}</p>`;
+  if (active) $("#offer").innerHTML += `<a class="preview" target="_blank" href="/offer.html?opening=${openingId}&client=${c.id}">Preview client offer ↗</a>`;
+  $("#queue").innerHTML = `<p><strong>Contacted</strong> ${s.contactedIds.length} client${s.contactedIds.length === 1 ? "" : "s"}</p>${s.nextClient ? `<p><strong>Next up</strong><br>${s.nextClient.name} · waiting since ${s.nextClient.waitlistedAt}</p>` : "<p class='muted'>No client queued next.</p>"}`;
+  $("#manual-client").innerHTML = s.opening.candidates.filter((client) => client.smsOptIn && !s.contactedIds.includes(client.id)).map((client) => `<option value="${client.id}">${client.name} · ${client.availability}</option>`).join("");
+  $("#history").innerHTML = s.history.slice().reverse().map((h) => `<li><span class="dot ${h.kind}"></span><div><strong>${h.kind.replaceAll("-", " ")}</strong><p>${h.text}</p></div></li>`).join("");
+  if (!active) clearInterval(timer);
 }
-
-start.addEventListener("click", async () => {
-  start.disabled = true;
-  const response = await fetch("/api/demo", { method: "POST" });
-  const body = await response.json();
-  requestId = body.requestId;
-  requestIdText.textContent = `Workflow ID: ${requestId}`;
-  start.hidden = true;
-  pollTimer = setInterval(() => refresh().catch(console.error), 500);
-  await refresh();
-});
-
-continueButton.addEventListener("click", async () => {
-  continueButton.disabled = true;
-  await fetch(`/api/demo/${requestId}/continue`, { method: "POST" });
-  await refresh();
-});
-
+$("#create").addEventListener("submit", async (e) => { e.preventDefault(); const data = new FormData(e.currentTarget); const cutoff = new Date(); const [h, m] = data.get("cutoff").split(":"); cutoff.setHours(+h, +m, 0, 0); if (cutoff < new Date()) cutoff.setTime(Date.now() + 60 * 60_000); const res = await fetch("/api/openings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ service: data.get("service"), stylist: data.get("stylist"), latestArrivalAt: cutoff.toISOString() }) }); openingId = (await res.json()).id; $("#create-panel").hidden = true; await refresh(); timer = setInterval(refresh, 1000); });
+$("#client-actions").addEventListener("click", async (e) => { const decision = e.target.dataset.decision; if (!decision) return; const s = await (await fetch(`/api/openings/${openingId}`)).json(); await fetch(`/api/openings/${openingId}/respond`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ clientId: s.currentClient.id, decision }) }); setTimeout(refresh, 300); });
+for (const [id, action] of [["#manual-fill", "filled-manually"], ["#close", "close"]]) $(id).addEventListener("click", async () => { await fetch(`/api/openings/${openingId}/control`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) }); setTimeout(refresh, 300); });
+$("#choose").addEventListener("click", async () => { await fetch(`/api/openings/${openingId}/control`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "choose-client", clientId: $("#manual-client").value }) }); setTimeout(refresh, 300); });

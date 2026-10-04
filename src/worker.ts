@@ -7,10 +7,10 @@ async function run(): Promise<void> {
   const worker = await Worker.create({
     connection,
     namespace: "default",
-    taskQueue: "assessment-starter",
+    taskQueue: "juniper-openings",
     workflowsPath: require.resolve("./workflows"),
   });
-  console.log("Worker is polling the assessment-starter task queue.");
+  console.log("Worker is polling the juniper-openings task queue.");
   await worker.run();
 }
 
@@ -18,4 +18,3 @@ run().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-
